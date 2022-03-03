@@ -1,0 +1,224 @@
+﻿@page "/"
+
+@using Blazor.Extensions.Canvas
+@using Blazor.Extensions;
+@using Blazor.Extensions.Canvas.Canvas2D;
+@using drawer
+@using drawer.Models
+@inject HttpClient Http
+@inject IJSRuntime JsRuntime
+
+<BECanvas @ref="_canvasReference" Width="2000" Height="1000"></BECanvas>
+
+@*<canvas @ref="_canvasReference" Width="2000" Height="1000"></canvas>*@
+<button @onclick="OnClick" class="run-botton">отрисовка</button>
+
+@code {
+
+    private Canvas2DContext ctx;
+    protected BECanvasComponent _canvasReference;
+    //protected ElementReference _canvasReference;
+    public ILegend[] ls;
+    private Func<ILegend, string, (double width, double height)>? mt;
+    private IRect r;
+    private double cx;
+    private double cy;
+    private double scale = 0.37037037037037035;
+    private double mashtab = 100.0;
+
+    public async Task OnClick()
+    {
+        await Init();
+
+        var dt = DateTime.Now;
+        //var fps = (DateTime.Now - LastRender).TotalMilliseconds;
+        //LastRender = DateTime.Now;
+
+
+        //if (Init.r == null) er = "null";
+
+
+        var layers = new ILayer[0];
+        try
+        {
+            layers = Drawer.build(ls, new IDrawProperties { left = r.left, top = r.top, scale = scale, mashtab = mashtab }, r, mt);
+
+            Drawer.build(ls, new IDrawProperties { left = r.left, top = cy, scale = scale / 2, mashtab = 100 }, new IRect { left = r.left, bottom = r.bottom, right = cx, top = cy }, mt);
+            Drawer.build(ls, new IDrawProperties { left = cx, top = cy, scale = scale / 2, mashtab = 100 }, new IRect { left = cx, bottom = r.bottom, right = r.right, top = cy }, mt);
+            Drawer.build(ls, new IDrawProperties { left = r.left, top = r.top, scale = scale / 2, mashtab = 100 }, new IRect { left = r.left, bottom = cy, right = cx, top = r.top }, mt);
+            Drawer.build(ls, new IDrawProperties { left = cx, top = r.top, scale = scale / 2, mashtab = 100 }, new IRect { left = cx, bottom = cy, right = r.right, top = r.top }, mt);
+
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.ToString());
+        }
+        var ms = (DateTime.Now - dt).TotalMilliseconds;
+        Console.WriteLine(ms.ToString() + " ms обработка данных");
+
+        await Draw(layers);
+    }
+
+
+    private async Task Init()
+    {
+        if (ctx != null) return;
+
+        Console.WriteLine("Инициализация");
+        
+        this.ctx = await _canvasReference.CreateCanvas2DAsync();        
+        var mea = await this.ctx.MeasureTextAsync("esdgrserg");
+        var ms = 0.0;
+        var dt = DateTime.Now;
+        
+        
+        try
+        {
+            ls = await Http.GetFromJsonAsync<ILegend[]>("sample-data/primitives.json");
+            ms = (DateTime.Now - dt).TotalMilliseconds;
+            Console.WriteLine(ms.ToString() + " ms загрузка json");
+
+            ls = ls.ToList().OrderBy(l => l.priority).ToArray();
+            ILegend? LastLeg = null;
+            var Sizes = new Dictionary<string, (double width, double height)>();
+            mt = new Func<ILegend, string, (double width, double height)>((ILegend l, string txt) =>
+              {
+                  //try
+                  //{
+                  //    if (LastLeg?.id != l.id)
+                  //    {                          
+
+                  //        Sizes = new Dictionary<string, (double width, double height)>();
+                  //        LastLeg = l;
+
+                  //        //, new Font(l.text.font.family, (float)size)
+                  //        var size = l.text.font.size;
+                  //        await this.ctx.SetFontAsync($"{size}pt {l.text.font.family}");
+                  //    }
+                      
+                  //    if (Sizes.TryGetValue(txt, out var s)) return s;
+
+                  //    var ms = await this.ctx.MeasureTextAsync(txt);
+                  //    var reusult = (ms.Width, (ms.ActualBoundingBoxAscent + ms.ActualBoundingBoxDescent));
+                  //    Sizes.Add(txt, reusult);
+                  //    return reusult;
+                  //}
+                  //catch (Exception ex)
+                  //{
+                  //    Console.WriteLine(ex.ToString());
+                  //}
+
+                  return (100, 20);
+              });
+            r = new IRect { left = 1200, bottom = 50, right = 4000, top = 2850 };
+            cx = (r.right + r.left) / 2;
+            cy = (r.bottom + r.top) / 2;
+
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.ToString());
+        }
+
+
+    }
+
+    private async Task Draw(ILayer[] layers)
+    {
+        var dt = DateTime.Now;
+        await this.ctx.BeginBatchAsync();
+        var dl = ls.ToDictionary(l => l.id);//ls.reduce((m, l) => m.set(l.id, l), new Map<number, ILegend>());
+
+        await this.ctx.ClearRectAsync(0, 0, 2000, 1000);
+
+        await this.ctx.SetFillStyleAsync("white");
+        await this.ctx.FillRectAsync(0, 0, 2000, 1000);
+
+        try
+        {
+            foreach (var l in layers)
+            {
+                if (!dl.TryGetValue(l.legendId, out var leg)) continue;
+
+                if (!leg.border.scaled)
+                    await this.ctx.SetLineWidthAsync((float)leg.border.size);
+                else
+                    await this.ctx.SetLineWidthAsync((float)(leg.border.size * scale));
+
+                await ctx.SetLineCapAsync(LineCap.Round);
+
+
+                switch (leg.type)
+                {
+                    case GrTypeEnum.Line:
+
+                        await ctx.SetStrokeStyleAsync(leg.border.color);
+                        foreach (var cs in l.coords)
+                        {
+                            await ctx.BeginPathAsync();
+
+                            await ctx.MoveToAsync(cs[0], cs[1]);
+                            for (var i = 2; i < cs.Length; i += 2)
+                                await ctx.LineToAsync(cs[i], cs[i + 1]);
+
+                            //ctx.closePath();
+                            await ctx.StrokeAsync();
+                        }
+                        break;
+                    case GrTypeEnum.Polygon:
+
+                        if (leg.fill.style == FillStyleEnum.Solid)
+                        {
+                            await ctx.SetFillStyleAsync(leg.fill.color1);
+                            foreach (var cs in l.coords)
+                            {
+                                await ctx.BeginPathAsync();
+                                await ctx.MoveToAsync(cs[0], cs[1]);
+                                for (var i = 2; i < cs.Length; i += 2)
+                                    await ctx.LineToAsync(cs[i], cs[i + 1]);
+
+                                await ctx.LineToAsync(cs[0], cs[1]);
+
+                                //ctx.closePath();
+                                await ctx.FillAsync();
+                            }
+
+                        }
+
+                        // if (leg.border.style === BorderStyleEnum.Solid)
+                        // {
+                        foreach (var cs in l.coords)
+                        {
+                            await ctx.BeginPathAsync();
+                            await ctx.MoveToAsync(cs[0], cs[1]);
+                            for (var i = 2; i < cs.Length; i += 2)
+                                await ctx.LineToAsync(cs[i], cs[i + 1]);
+                            await ctx.LineToAsync(cs[0], cs[1]);
+                            await ctx.ClosePathAsync();
+                            await ctx.StrokeAsync();
+                        }
+
+                        // }
+
+                        break;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.ToString());
+        }
+        await this.ctx.EndBatchAsync();
+
+        var ms = (DateTime.Now - dt).TotalMilliseconds;
+
+        Console.WriteLine(ms.ToString() + " ms отрисовка");
+
+
+    }
+    //protected override async Task OnAfterRenderAsync(bool firstRender)
+    //{
+    //    if (!firstRender) return;
+
+    //}
+}

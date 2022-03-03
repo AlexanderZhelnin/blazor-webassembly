@@ -1,0 +1,10 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--
+https://go.microsoft.com/fwlink/?LinkID=208121.
+-->
+<Project>
+  <PropertyGroup>
+    <_PublishTargetUrl>C:\Project\Blazor-webassembly\Blazor-webassembly\bin\Release\net6.0\browser-wasm\publish\</_PublishTargetUrl>
+    <History>True|2022-03-01T12:45:50.1153731Z;True|2022-03-01T11:04:36.9598053+03:00;True|2022-03-01T09:50:15.9235126+03:00;True|2022-03-01T09:04:03.4349853+03:00;True|2022-03-01T08:51:45.0514486+03:00;True|2022-03-01T08:51:03.3644105+03:00;True|2022-03-01T08:50:14.4326144+03:00;True|2022-03-01T08:47:29.7111396+03:00;True|2022-03-01T08:46:10.9269244+03:00;True|2022-03-01T08:15:27.7381432+03:00;True|2022-02-28T09:28:40.3588685+03:00;</History>
+  </PropertyGroup>
+</Project>
